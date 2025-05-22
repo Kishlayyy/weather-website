@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAkNu48h8SWNkbOJh2SbbUVNRy9_loiMho&callback=initMap"
+      async
+      defer
+    ></script>
+  </head>
+  <body>
+    <div id="header">
+      <img src="./weather-icon-png-11064.png" height="50px" alt="" />
+      <h3>Weather App</h3>
+    </div>
+    <div id="container">
+      <div id="search">
+        <form id="city-search-form">
+          <input type="search" name="q" placeholder="Search your Address..." />
+          <button type="submit"><i class="fas fa-search"></i></button>
+        </form>
+      </div>
+    </div>
+    <div id="location-section">
+      <h3>Current Location</h3>
+      <div id="map" style="height: 300px; width: 100%"></div>
+      <div id="weather-output">
+        <p>Fetching weather data...</p>
+      </div>
+    </div>
+    <script>
+      const weatherApiKey = "95cb7d0c61689bd039ef9665becca5df";
+      let map;
+      let currentMarker = null; // Keep track of the marker so we can remove it later
+
+      function initMap() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lon = position.coords.longitude;
+              const userLocation = { lat, lng: lon };
+
+              map = new google.maps.Map(document.getElementById("map"), {
+                center: userLocation,
+                zoom: 12,
+              });
+
+              addMarker(userLocation, "You are here!");
+
+              getWeather(lat, lon);
+            },
+            () => {
+              document.getElementById("weather-output").innerText =
+                "Unable to retrieve location.";
+            }
+          );
+        } else {
+          document.getElementById("weather-output").innerText =
+            "Geolocation not supported.";
+        }
+      }
+
+      function addMarker(position, title) {
+        if (currentMarker) {
+          currentMarker.setMap(null); // Remove previous marker
+        }
+        currentMarker = new google.maps.Marker({
+          position,
+          map,
+          title,
+        });
+      }
+
+      function getWeather(lat, lon) {
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${weatherApiKey}`;
+
+        fetch(url)
+          .then((response) => response.json())
+          .then((data) => {
+            displayWeather(data); // Display the weather info
+            updateBackgroundImage(data.name); // Change background using city name
+          })
+          .catch((err) => {
+            document.getElementById("weather-output").innerText =
+              "Error fetching weather data.";
+            console.error(err);
+          });
+      }
+
+      function getWeatherByCity(city) {
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${weatherApiKey}`;
+
+        fetch(url)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("City not found");
+            }
+            return response.json();
+          })
+          .then((data) => {
+            if (data.coord) {
+              const cityLocation = { lat: data.coord.lat, lng: data.coord.lon };
+              map.setCenter(cityLocation);
+              addMarker(cityLocation, data.name);
+            }
+            displayWeather(data); // Show weather info
+            updateBackgroundImage(data.name); // Update background image
+          })
+          .catch((err) => {
+            document.getElementById("weather-output").innerText =
+              "City not found or error fetching weather data.";
+            console.error(err);
+          });
+      }
+
+      function displayWeather(data) {
+        const condition = data.weather[0].main.toLowerCase();
+
+        // Update weather info display
+        document.getElementById("weather-output").innerHTML = `
+    <h4>${data.name}</h4>
+    <p>${data.weather[0].description}</p>
+    <p>🌡 ${data.main.temp}°C</p>
+    <p>💨 ${data.wind.speed} m/s</p>
+  `;
+
+        // Map weather condition to CSS class
+        const conditionClassMap = {
+          clear: "clear",
+          clouds: "clouds",
+          rain: "rain",
+          thunderstorm: "thunderstorm",
+          snow: "snow",
+          drizzle: "rain", // map drizzle to rain
+          mist: "mist",
+          haze: "haze",
+          fog: "fog",
+          smoke: "smoke",
+        };
+
+        // Remove all previous weather-related classes from the body
+        document.body.classList.remove(...Object.values(conditionClassMap));
+
+        // Apply the relevant class based on weather condition
+        const className = conditionClassMap[condition];
+        if (className) {
+          document.body.classList.add(className);
+        } else {
+          document.body.classList.add("clear"); // fallback if unknown condition
+        }
+      }
+
+      // Form submission handler
+      document
+        .getElementById("city-search-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const query = e.target.q.value.trim();
+          if (query) {
+            getWeatherByCity(query);
+          }
+        });
+      function updateBackgroundImage(city) {
+        const accessKey = "7pmNpn_GkXDch5DTrHOuGeT-JroJwWrtUDjbF3FyqWw"; // Replace with your real key
+        const url = `https://api.unsplash.com/photos/random?query=${city}&orientation=landscape&client_id=${accessKey}`;
+
+        fetch(url)
+          .then((response) => response.json())
+          .then((data) => {
+            if (data && data.urls && data.urls.full) {
+              document.body.style.backgroundImage = `url(${data.urls.full})`;
+              document.body.style.backgroundSize = "cover";
+              document.body.style.backgroundPosition = "center";
+            }
+          })
+          .catch((err) => {
+            console.error("Error fetching background image:", err);
+          });
+      }
+    </script>
+  </body>
+</html>
